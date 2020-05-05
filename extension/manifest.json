@@ -1,16 +1,22 @@
 {
   "name": "Grocery price tracker",
-  "version": "0.0.6",
+  "version": "0.0.10",
   "description": "Tracks prices of groceries over time.",
   "content_scripts": [
    {
-     "matches": ["https://*.walmart.com/*"],
-     "js": ["content.js"]
+     "all_frames": false,
+     "matches": ["*://*.walmart.com/*"],
+     "js": ["content.js"],
+     "run_at": "document_start"
    }
  ],
  "permissions": [
    "activeTab",
-   "declarativeContent"
+   "declarativeContent",
+   "tabs",
+   "storage",
+   "*://walmart.com/*",
+   "*://walmart.com/v3/api/products/*"
  ],
  "background": {
     "scripts": [
