@@ -17,8 +17,8 @@
    "storage",
    "debugger",
    "webRequest",
-   "*://walmart.com/*",
-   "*://walmart.com/v3/api/products/*"
+   "*://*.walmart.com/*",
+   "*://*.walmart.com/v3/api/products/*"
  ],
  "background": {
     "scripts": [

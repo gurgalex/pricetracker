@@ -1,4 +1,5 @@
 "use strict";
+
 document.addEventListener("load", scrapeProduct, {capture: true});
 
 function scrapeProduct() {
