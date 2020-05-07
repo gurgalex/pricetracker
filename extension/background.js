@@ -21,14 +21,14 @@ chrome.webRequest.onCompleted.addListener((details) => {
         fetch(productInfoUrl)
             .then(response => response.json())
             .then(data => {
-                console.log("captured request for url details: ", details);
-                console.log("product info: ", data);
+                console.log(`captured request for url details: ${details}`);
+                console.log(`product info: ${details}`);
                 let parsed_product_info = new ProductInfo(data);
-                console.log("formatted product info:", parsed_product_info,
-                    "\nitem name:", parsed_product_info.title,
-                    "\ntotal price:", parsed_product_info.price.list_price,
-                    "\n$ per unit (" + parsed_product_info.price.priceUnitOfMeasure + ")" + ":", parsed_product_info.price.unit_price,
-                    "\ndate recorded:", (new Date()).toUTCString()
+                console.log(`formatted product info: ${parsed_product_info}` +
+                    `\nitem name: ${parsed_product_info.title}` +
+                    `\ntotal price: ${parsed_product_info.price.list_price}` +
+                    `\n$ per unit (${parsed_product_info.price.priceUnitOfMeasure}): ${parsed_product_info.price.unit_price}` +
+                    `\ndate recorded: ${(new Date()).toUTCString()}`
                 );
             });
     }, {urls: ["*://grocery.walmart.com/v3/api/products/*"],
