@@ -17,15 +17,16 @@ chrome.webRequest.onCompleted.addListener((details) => {
             return;
         }
 
-        let productInfoUrl = details.url;
+        const productInfoUrl = details.url;
         fetch(productInfoUrl)
             .then(response => response.json())
             .then(data => {
-                console.log(`captured request for url details: ${details}`);
-                console.log(`product info: ${details}`);
+                console.log(`captured request for url details:`, details);
+                console.log(`captured response for product:`, datak);
+
                 let parsed_product_info = new ProductInfo(data);
-                console.log(`formatted product info: ${parsed_product_info}` +
-                    `\nitem name: ${parsed_product_info.title}` +
+                console.log(`formatted product info:`, parsed_product_info);
+                console.log(`\nitem name: ${parsed_product_info.title}` +
                     `\ntotal price: ${parsed_product_info.price.list_price}` +
                     `\n$ per unit (${parsed_product_info.price.priceUnitOfMeasure}): ${parsed_product_info.price.unit_price}` +
                     `\ndate recorded: ${(new Date()).toUTCString()}`
