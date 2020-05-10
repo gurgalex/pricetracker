@@ -1,45 +1,33 @@
 "use strict";
+// Attach debugger every time a tab is updated.
+chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
+    if (changeInfo.status !== "complete") {
+        return;
+    }
+
+    let debuggee = {tabId: tabId};
+    chrome.debugger.attach(debuggee, "1.3");
+    chrome.debugger.sendCommand({tabId: tabId}, "Network.enable");
+    chrome.debugger.onEvent.addListener(onEvent);
+});
 
 /**
- * Returns whether the initiator of a request was a chrome extension.
- * @param initiator {String}
- * @returns {boolean}
+ *
+ * @param json {Object} Json object of Product info needing validation.
  */
-let is_background_page_tab = function(initiator) {
-    return initiator.startsWith("chrome-extension");
+function parseProductJson(json) {
+    let parsed_product_info = new ProductInfo(json);
+    console.log(`formatted product info:`, parsed_product_info);
+    console.log(`\nitem name: ${parsed_product_info.title}` +
+        `\ntotal price: ${parsed_product_info.price.list_price}` +
+        `\n$ per unit (${parsed_product_info.price.priceUnitOfMeasure}): ${parsed_product_info.price.unit_price}` +
+        `\ndate recorded: ${(new Date()).toUTCString()}`
+    );
 }
 
-chrome.webRequest.onCompleted.addListener((details) => {
-
-        // Don't repeat our requests if origninating from our extension.
-        // prevents DoS by not requesting product info if the extension requested it.
-        if (is_background_page_tab(details.initiator)) {
-            return;
-        }
-
-        const productInfoUrl = details.url;
-        fetch(productInfoUrl)
-            .then(response => response.json())
-            .then(data => {
-                console.log(`captured request for url details:`, details);
-                console.log(`captured response for product:`, datak);
-
-                let parsed_product_info = new ProductInfo(data);
-                console.log(`formatted product info:`, parsed_product_info);
-                console.log(`\nitem name: ${parsed_product_info.title}` +
-                    `\ntotal price: ${parsed_product_info.price.list_price}` +
-                    `\n$ per unit (${parsed_product_info.price.priceUnitOfMeasure}): ${parsed_product_info.price.unit_price}` +
-                    `\ndate recorded: ${(new Date()).toUTCString()}`
-                );
-            });
-    }, {urls: ["*://grocery.walmart.com/v3/api/products/*"],
-        types: [
-            "xmlhttprequest", // capture itemFields request
-            ]}
-);
 
 /**
- * Detach the grocerry store's internal data structure from ours incase their's changes.
+ * Detach the grocery store's internal data structure from ours in case their's changes.
  */
 class ProductInfo {
     constructor(productJson) {
@@ -59,5 +47,28 @@ class Price {
         this.list_price = priceJson.list;
         // amount paid per X (Each, oz, fl oz, lb, etc)
         this.priceUnitOfMeasure = priceJson.priceUnitOfMeasure;
+    }
+}
+
+/**
+ * Handles any events that are triggered by Chrome debugger
+ * @param debuggeeId {chrome.debugger.types.Debuggee} Most concenred with tabId (for content tab)
+ * @param message {String} Method name. Should be one of the notifications defined by the remote debugging protocol.
+ * @param params {Object} JSON object with the parameters. Structure of the parameters varies depending on the method name and is defined by the 'parameters' attribute of the event description in the remote debugging protocol.
+ */
+function onEvent(debuggeeId, message, params) {
+    if (message == "Network.responseReceived") {
+        if (params.response.url.includes("grocery.walmart.com/v3/api/products")) {
+
+            // Copied from: https://stackoverflow.com/questions/48785946/how-to-get-response-body-of-all-requests-made-in-a-chrome-extension
+            chrome.debugger.sendCommand({
+                tabId: debuggeeId.tabId
+            }, "Network.getResponseBody", {
+                "requestId": params.requestId
+            }, function (response) {
+                let response_json = JSON.parse(response.body);
+                parseProductJson(response_json);
+            });
+        }
     }
 }
