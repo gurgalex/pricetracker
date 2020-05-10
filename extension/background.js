@@ -12,6 +12,30 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 });
 
 /**
+ * Handles any events that are triggered by Chrome debugger
+ * @param debuggeeId {chrome.debugger.types.Debuggee} Most concenred with tabId (for content tab)
+ * @param message {String} Method name. Should be one of the notifications defined by the remote debugging protocol.
+ * @param params {Object} JSON object with the parameters. Structure of the parameters varies depending on the method name and is defined by the 'parameters' attribute of the event description in the remote debugging protocol.
+ */
+function onEvent(debuggeeId, message, params) {
+    if (message == "Network.responseReceived") {
+        if (params.response.url.includes("grocery.walmart.com/v3/api/products")) {
+
+            // Copied from: https://stackoverflow.com/questions/48785946/how-to-get-response-body-of-all-requests-made-in-a-chrome-extension
+            chrome.debugger.sendCommand({
+                tabId: debuggeeId.tabId
+            }, "Network.getResponseBody", {
+                "requestId": params.requestId
+            }, function (response) {
+                let response_json = JSON.parse(response.body);
+                parseProductJson(response_json);
+            });
+        }
+    }
+}
+
+
+/**
  *
  * @param json {Object} Json object of Product info needing validation.
  */
@@ -47,28 +71,5 @@ class Price {
         this.list_price = priceJson.list;
         // amount paid per X (Each, oz, fl oz, lb, etc)
         this.priceUnitOfMeasure = priceJson.priceUnitOfMeasure;
-    }
-}
-
-/**
- * Handles any events that are triggered by Chrome debugger
- * @param debuggeeId {chrome.debugger.types.Debuggee} Most concenred with tabId (for content tab)
- * @param message {String} Method name. Should be one of the notifications defined by the remote debugging protocol.
- * @param params {Object} JSON object with the parameters. Structure of the parameters varies depending on the method name and is defined by the 'parameters' attribute of the event description in the remote debugging protocol.
- */
-function onEvent(debuggeeId, message, params) {
-    if (message == "Network.responseReceived") {
-        if (params.response.url.includes("grocery.walmart.com/v3/api/products")) {
-
-            // Copied from: https://stackoverflow.com/questions/48785946/how-to-get-response-body-of-all-requests-made-in-a-chrome-extension
-            chrome.debugger.sendCommand({
-                tabId: debuggeeId.tabId
-            }, "Network.getResponseBody", {
-                "requestId": params.requestId
-            }, function (response) {
-                let response_json = JSON.parse(response.body);
-                parseProductJson(response_json);
-            });
-        }
     }
 }
