@@ -89,7 +89,8 @@ chrome.debugger.onEvent.addListener(function (source, method, params) {
                 function (response) {
                     if (response) {
                         console.log("response for url:", object.url);
-                        console.log(response);
+                        let resp_json = JSON.parse(response.body);
+                        parseProductJson(resp_json);
                     } else {
                         console.log("Empty response for " + object.url);
                     }
