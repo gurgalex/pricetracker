@@ -40,6 +40,26 @@ class Price {
     }
 }
 
+//Todo: Get sample fn working on content page reopen
+
+window.addEventListener("unload", function() {
+    chrome.debugger.detach({tabId:tabId});
+    gAttached = false;
+    console.log("unloaded");
+});
+
+
+// Attach debugger every time a tab is updated.
+chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
+    if (changeInfo.status !== "complete") {
+        return;
+    }
+
+    let debuggee = {tabId: tabId};
+    chrome.debugger.onEvent.addListener(initialListener);
+});
+
+
 // Below copied from: https://stackoverflow.com/questions/47962104/chrome-extension-no-resource-with-given-identifier-found-when-trying-to-netwo
 
 let gAttached = false;
@@ -114,7 +134,8 @@ chrome.debugger.onEvent.addListener(function (source, method, params) {
     }
 );
 
-var initialListener = function (details) {
+function initialListener(details) {
+    console.debug(`enter initialListener: tabID=${details.tabId}, gAttached=${gAttached}`);
     if (gAttached) return;  // Only need once at the very first request, so block all following requests
     let tabId = details.tabId;
     if (tabId > 0) {
@@ -126,13 +147,29 @@ var initialListener = function (details) {
                 tabId: tabId
             }, "Network.enable");
         });
+        console.debug("attached inner debugger");
         // Remove self since the debugger is attached already
-        chrome.webRequest.onBeforeRequest.removeListener(initialListener);
+        //chrome.webRequest.onBeforeRequest.removeListener(initialListener);
     }
-};
+    console.debug(`exit initialListener: tabID=${details.tabId}, gAttached=${gAttached}`);
+
+}
+
+chrome.runtime.onMessage.addListener(
+    (request, sender, sendResponse) => {
+        if (request.message === "attachDebugger") {
+            let tabId = sender.tab.id;
+            gAttached = false;
+            initialListener({tabId: tabId});
+            console.debug("attached chrome debugger");
+            chrome.debugger.onEvent.addListener(initialListener);
+            sendResponse({message: "attached debugger"});
+        }
+    });
+
 
 // Attach debugger on startup
-chrome.webRequest.onBeforeRequest.addListener(initialListener, {urls: ["<all_urls>"]}, ["blocking"]);
+//chrome.webRequest.onBeforeRequest.addListener(initialListener, {urls: ["<all_urls>"]}, ["blocking"]);
 
 // Filter if the url is what we want
 function getTarget(url) {
