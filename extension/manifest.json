@@ -12,8 +12,6 @@
  ],
  "permissions": [
    "activeTab",
-   "webRequest",
-   "webRequestBlocking",
    "declarativeContent",
    "tabs",
    "storage",

@@ -148,8 +148,6 @@ function initialListener(details) {
             }, "Network.enable");
         });
         console.debug("attached inner debugger");
-        // Remove self since the debugger is attached already
-        //chrome.webRequest.onBeforeRequest.removeListener(initialListener);
     }
     console.debug(`exit initialListener: tabID=${details.tabId}, gAttached=${gAttached}`);
 
@@ -168,13 +166,10 @@ chrome.runtime.onMessage.addListener(
     });
 
 
-// Attach debugger on startup
-//chrome.webRequest.onBeforeRequest.addListener(initialListener, {urls: ["<all_urls>"]}, ["blocking"]);
-
 // Filter if the url is what we want
 function getTarget(url) {
     for (const i in TARGETS) {
-        var target = TARGETS[i];
+        let target = TARGETS[i];
         if (url.match(target.url)) {
             return i;
         }
