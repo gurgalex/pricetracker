@@ -41,6 +41,7 @@ class Price {
 }
 
 
+// Below adapted from: https://stackoverflow.com/questions/47962104/chrome-extension-no-resource-with-given-identifier-found-when-trying-to-netwo
 
 let gAttached = false;
 let gRequests = [];
