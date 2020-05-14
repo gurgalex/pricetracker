@@ -6,8 +6,7 @@
    {
      "all_frames": false,
      "matches": ["*://*.walmart.com/*"],
-     "js": ["content.js"],
-     "run_at": "document_start"
+     "js": ["content.js"]
    }
  ],
  "permissions": [
