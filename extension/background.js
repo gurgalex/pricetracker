@@ -40,27 +40,7 @@ class Price {
     }
 }
 
-//Todo: Get sample fn working on content page reopen
 
-window.addEventListener("unload", function() {
-    chrome.debugger.detach({tabId:tabId});
-    gAttached = false;
-    console.log("unloaded");
-});
-
-
-// Attach debugger every time a tab is updated.
-chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
-    if (changeInfo.status !== "complete") {
-        return;
-    }
-
-    let debuggee = {tabId: tabId};
-    chrome.debugger.onEvent.addListener(initialListener);
-});
-
-
-// Below copied from: https://stackoverflow.com/questions/47962104/chrome-extension-no-resource-with-given-identifier-found-when-trying-to-netwo
 
 let gAttached = false;
 let gRequests = [];
