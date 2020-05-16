@@ -45,13 +45,14 @@ class Price {
 
 let gAttached = false;
 let gRequests = [];
-let gObjects = [];
+let requestObjects = [];
 
 chrome.debugger.onEvent.addListener(function (source, method, params) {
         if (method == "Network.requestWillBeSent") {
             // If we see a url need to be handled, push it into index queue
             let rUrl = params.request.url;
-            if (getTarget(rUrl) >= 0) {
+            let target = getTarget(rUrl);
+            if (target !== undefined) {
                 gRequests.push(rUrl);
             }
         }
@@ -59,41 +60,41 @@ chrome.debugger.onEvent.addListener(function (source, method, params) {
             // We get its request id here, write it down to object queue
             let eUrl = params.response.url;
             let target = getTarget(eUrl);
-            if (target >= 0) {
-                gObjects.push({
+            if (target !== undefined) {
+                requestObjects.push({
                     requestId: params.requestId,
                     target: target,
                     url: eUrl
                 });
             }
         }
-        if (method == "Network.loadingFinished" && gObjects.length > 0) {
-            // Pop out the request object from both object queue and request queue
+        if (method == "Network.loadingFinished" && requestObjects.length > 0) {
+            // Pop out the request rObject from both rObject queue and request queue
             let requestId = params.requestId;
-            let object = null;
-            for (const o in gObjects) {
-                if (requestId === gObjects[o].requestId) {
-                    object = gObjects.splice(o, 1)[0];
+            let rObject = null;
+            for (const o in requestObjects) {
+                if (requestId === requestObjects[o].requestId) {
+                    rObject = requestObjects.splice(o, 1)[0];
                     break;
                 }
             }
             // Usually loadingFinished will be immediately after responseReceived
-            if (object == null) {
+            if (rObject == null) {
                 console.log('Failed!!');
                 return;
             }
-            gRequests.splice(gRequests.indexOf(object.url), 1);
+            gRequests.splice(gRequests.indexOf(rObject.url), 1);
             chrome.debugger.sendCommand(
                 source,
                 "Network.getResponseBody",
                 {"requestId": requestId},
                 function (response) {
                     if (response) {
-                        console.log("response for url:", object.url);
+                        console.log("response for url:", rObject.url);
                         let resp_json = JSON.parse(response.body);
                         parseProductJson(resp_json);
                     } else {
-                        console.log("Empty response for " + object.url);
+                        console.log("Empty response for " + rObject.url);
                     }
                     // If we don't have any request waiting for response, re-attach debugger
                     // since without this step it will lead to memory leak.
@@ -149,16 +150,10 @@ chrome.runtime.onMessage.addListener(
 
 // Filter if the url is what we want
 function getTarget(url) {
-    for (const i in TARGETS) {
-        let target = TARGETS[i];
-        if (url.match(target.url)) {
-            return i;
-        }
-    }
-    return -1;
+    return TARGETS.find(re => re.regex.test(url));
 }
 
 const TARGETS = [
-    {url: '/grocery.walmart.com/v3/api/products', desc: 'target1'},
-    {url: '/path2', desc: 'target2'}
+    {regex: new RegExp('/grocery.walmart.com/v3/api/products'), desc: 'walmart_grocery_details'},
+    {regex: new RegExp('/grocery.walmart.com/v4/api/products/search'), desc: 'walmart_product_basic'}
 ]
