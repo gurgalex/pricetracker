@@ -47,6 +47,16 @@ let gAttached = false;
 let gRequests = [];
 let requestObjects = [];
 
+
+function reAttachDebugger(tabId) {
+    chrome.debugger.detach({tabId},
+        () => chrome.debugger.attach({tabId}, "1.3",
+            () => chrome.debugger.sendCommand({tabId}, "Network.enable")
+        )
+    );
+}
+
+// Todo: Handling should be different for each group of API urls.
 chrome.debugger.onEvent.addListener(function (source, method, params) {
         if (method == "Network.requestWillBeSent") {
             // If we see a url need to be handled, push it into index queue
@@ -56,6 +66,7 @@ chrome.debugger.onEvent.addListener(function (source, method, params) {
                 gRequests.push(rUrl);
             }
         }
+
         if (method == "Network.responseReceived") {
             // We get its request id here, write it down to object queue
             let eUrl = params.response.url;
@@ -88,7 +99,7 @@ chrome.debugger.onEvent.addListener(function (source, method, params) {
                 source,
                 "Network.getResponseBody",
                 {"requestId": requestId},
-                function (response) {
+                (response) => {
                     if (response) {
                         console.log("response for url:", rObject.url);
                         let resp_json = JSON.parse(response.body);
@@ -99,17 +110,7 @@ chrome.debugger.onEvent.addListener(function (source, method, params) {
                     // If we don't have any request waiting for response, re-attach debugger
                     // since without this step it will lead to memory leak.
                     if (gRequests.length === 0) {
-                        chrome.debugger.detach({
-                            tabId: source.tabId
-                        }, function () {
-                            chrome.debugger.attach({
-                                tabId: source.tabId
-                            }, "1.3", function () {
-                                chrome.debugger.sendCommand({
-                                    tabId: source.tabId
-                                }, "Network.enable");
-                            });
-                        });
+                        reAttachDebugger(source.tabId);
                     }
                 });
         }
@@ -122,13 +123,9 @@ function initialListener(details) {
     let tabId = details.tabId;
     if (tabId > 0) {
         gAttached = true;
-        chrome.debugger.attach({
-            tabId: tabId
-        }, "1.3", function () {
-            chrome.debugger.sendCommand({
-                tabId: tabId
-            }, "Network.enable");
-        });
+        chrome.debugger.attach({tabId}, "1.3",
+            () => chrome.debugger.sendCommand({tabId}, "Network.enable")
+        );
         console.debug("attached inner debugger");
     }
     console.debug(`exit initialListener: tabID=${details.tabId}, gAttached=${gAttached}`);
@@ -140,7 +137,7 @@ chrome.runtime.onMessage.addListener(
         if (request.message === "attachDebugger") {
             let tabId = sender.tab.id;
             gAttached = false;
-            initialListener({tabId: tabId});
+            initialListener({tabId});
             console.debug("attached chrome debugger");
             chrome.debugger.onEvent.addListener(initialListener);
             sendResponse({message: "attached debugger"});
