@@ -43,9 +43,8 @@ class Price {
 
 // Below adapted from: https://stackoverflow.com/questions/47962104/chrome-extension-no-resource-with-given-identifier-found-when-trying-to-netwo
 
-let gAttached = false;
-let gRequests = [];
-let requestObjects = [];
+let debuggerAttached = false;
+let requestMapping = new Map();
 
 
 function reAttachDebugger(tabId) {
@@ -58,58 +57,54 @@ function reAttachDebugger(tabId) {
 
 // Todo: Handling should be different for each group of API urls.
 chrome.debugger.onEvent.addListener(function (source, method, params) {
-        if (method == "Network.requestWillBeSent") {
-            // If we see a url need to be handled, push it into index queue
-            let rUrl = params.request.url;
-            let target = getTarget(rUrl);
-            if (target !== undefined) {
-                gRequests.push(rUrl);
-            }
-        }
 
         if (method == "Network.responseReceived") {
             // We get its request id here, write it down to object queue
-            let eUrl = params.response.url;
-            let target = getTarget(eUrl);
-            if (target !== undefined) {
-                requestObjects.push({
-                    requestId: params.requestId,
-                    target: target,
-                    url: eUrl
+            let url = params.response.url;
+            let urlTypeMatch = getUrlTypeMatch(url);
+            if (urlTypeMatch !== undefined) {
+                requestMapping.set(params.requestId, {
+                    urlType: urlTypeMatch.urlType,
+                    source,
+                    params,
+                    url,
                 });
+                console.log("pending request:", requestMapping.get(params.requestId));
             }
         }
-        if (method == "Network.loadingFinished" && requestObjects.length > 0) {
-            // Pop out the request rObject from both rObject queue and request queue
-            let requestId = params.requestId;
-            let rObject = null;
-            for (const o in requestObjects) {
-                if (requestId === requestObjects[o].requestId) {
-                    rObject = requestObjects.splice(o, 1)[0];
-                    break;
-                }
-            }
-            // Usually loadingFinished will be immediately after responseReceived
-            if (rObject == null) {
-                console.log('Failed!!');
+        else if (method == "Network.loadingFinished" && requestMapping.size > 0) {
+            // Pop out the request rObject from pending responses.
+            const requestId = params.requestId;
+            let rObject = requestMapping.get(requestId);
+            // Usually loadingFinished will be immediately available after responseReceived
+            if (rObject === undefined) {
+                console.debug(`response still loading, not ready yet: ${requestId}`);
                 return;
             }
-            gRequests.splice(gRequests.indexOf(rObject.url), 1);
+            requestMapping.delete(requestId);
+
             chrome.debugger.sendCommand(
                 source,
                 "Network.getResponseBody",
                 {"requestId": requestId},
-                (response) => {
+                response => {
                     if (response) {
-                        console.log("response for url:", rObject.url);
-                        let resp_json = JSON.parse(response.body);
-                        parseProductJson(resp_json);
-                    } else {
+                        if (rObject.urlType === API_POINTS.walmart_grocery_details) {
+                            handleProductPage(rObject, response);
+                        }
+                        else if (rObject.urlType === API_POINTS.walmart_product_search) {
+                            console.log("got product search basic url");
+                        }
+                        else {
+                            console.log("unhandled resp type", rObject.urlType);
+                        }
+                    }
+                    else {
                         console.log("Empty response for " + rObject.url);
                     }
                     // If we don't have any request waiting for response, re-attach debugger
                     // since without this step it will lead to memory leak.
-                    if (gRequests.length === 0) {
+                    if (requestMapping.size === 0) {
                         reAttachDebugger(source.tabId);
                     }
                 });
@@ -117,18 +112,24 @@ chrome.debugger.onEvent.addListener(function (source, method, params) {
     }
 );
 
+function handleProductPage(rObject, response) {
+    console.log("got product page info url:", rObject.url, rObject)
+    const resp_json = JSON.parse(response.body);
+    parseProductJson(resp_json);
+}
+
 function initialListener(details) {
-    console.debug(`enter initialListener: tabID=${details.tabId}, gAttached=${gAttached}`);
-    if (gAttached) return;  // Only need once at the very first request, so block all following requests
+    console.debug(`enter initialListener: tabID=${details.tabId}, gAttached=${debuggerAttached}`);
+    if (debuggerAttached) return;  // Only need once at the very first request, so block all following requests
     let tabId = details.tabId;
     if (tabId > 0) {
-        gAttached = true;
+        debuggerAttached = true;
         chrome.debugger.attach({tabId}, "1.3",
             () => chrome.debugger.sendCommand({tabId}, "Network.enable")
         );
         console.debug("attached inner debugger");
     }
-    console.debug(`exit initialListener: tabID=${details.tabId}, gAttached=${gAttached}`);
+    console.debug(`exit initialListener: tabID=${details.tabId}, gAttached=${debuggerAttached}`);
 
 }
 
@@ -136,7 +137,7 @@ chrome.runtime.onMessage.addListener(
     (request, sender, sendResponse) => {
         if (request.message === "attachDebugger") {
             let tabId = sender.tab.id;
-            gAttached = false;
+            debuggerAttached = false;
             initialListener({tabId});
             console.debug("attached chrome debugger");
             chrome.debugger.onEvent.addListener(initialListener);
@@ -146,11 +147,17 @@ chrome.runtime.onMessage.addListener(
 
 
 // Filter if the url is what we want
-function getTarget(url) {
+function getUrlTypeMatch(url) {
     return TARGETS.find(re => re.regex.test(url));
 }
 
+const API_POINTS = {
+    walmart_grocery_details: 1,
+    walmart_product_search: 2,
+}
+Object.freeze(API_POINTS);
+
 const TARGETS = [
-    {regex: new RegExp('/grocery.walmart.com/v3/api/products'), desc: 'walmart_grocery_details'},
-    {regex: new RegExp('/grocery.walmart.com/v4/api/products/search'), desc: 'walmart_product_basic'}
+    {regex: new RegExp('/grocery.walmart.com/v3/api/products'), urlType: API_POINTS.walmart_grocery_details},
+    {regex: new RegExp('/grocery.walmart.com/v4/api/products/search'), urlType: API_POINTS.walmart_product_search}
 ]
