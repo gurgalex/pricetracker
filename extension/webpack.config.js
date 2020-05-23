@@ -13,6 +13,9 @@ module.exports = {
 	mode: 'development',
 	// Can't use eval-based source map in content.js.
 	devtool: 'source-map',
+	// https://webpack.js.org/configuration/watch/
+	// Recompile on file change to dest folder
+	watch: true,
 	// Declare entries to bundle (modules)
 	// https://webpack.js.org/concepts/entry-points/
 	entry: {
