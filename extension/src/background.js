@@ -15,9 +15,10 @@ function parseProductJson(json, storeId) {
         `\n$ per unit (${parsed_product_info.price.priceUnitOfMeasure}): ${parsed_product_info.price.unit_price}` +
         `\ndate priced: ${parsed_product_info.datePriced.toUTCString()}`
     );
+    const store = idb.ProductDB.transaction(storeName).objectStore(storeName);
     idb.ProductDB.then(res => res.add("productWalmart", parsed_product_info)
         .then(result => console.log(`result: ${result}`))
-        .catch(err => console.log(`error adding product to db: ${err}`))
+        .catch(err => {console.log(`error adding product to db: ${err}`); throw err;})
 );
 }
 
