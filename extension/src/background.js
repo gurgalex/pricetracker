@@ -1,18 +1,26 @@
 "use strict";
+import {idb} from "./db.js";
+import {getParams} from "./utils.js";
 
+console.log("register");
 
 /**
- *
  * @param json {Object} Json object of Product info needing validation.
+ * @param storeId {String} The identifier for a particular store for a company
  */
-function parseProductJson(json) {
-    let parsed_product_info = new ProductInfo(json);
+function parseProductJson(json, storeId) {
+    const datePriced =  new Date();
+    let parsed_product_info = new ProductInfo(json, storeId, datePriced);
     console.log(`formatted product info:`, parsed_product_info);
     console.log(`\nitem name: ${parsed_product_info.title}` +
         `\ntotal price: ${parsed_product_info.price.list_price}` +
         `\n$ per unit (${parsed_product_info.price.priceUnitOfMeasure}): ${parsed_product_info.price.unit_price}` +
-        `\ndate recorded: ${(new Date()).toUTCString()}`
+        `\ndate priced: ${parsed_product_info.datePriced.toUTCString()}`
     );
+    idb.ProductDB.then(res => res.add("productWalmart", parsed_product_info)
+        .then(result => console.log(`result: ${result}`))
+        .catch(err => console.log(`error adding product to db: ${err}`))
+);
 }
 
 
@@ -20,11 +28,16 @@ function parseProductJson(json) {
  * Detach the grocery store's internal data structure from ours in case their's changes.
  */
 class ProductInfo {
-    constructor(productJson) {
+    constructor(productJson, storeId, datePriced) {
         this._json = productJson;
+        // specific store the product price is tracked from
+        this.storeId = storeId;
+        // unique identifier for product in region??
+        this.USItemId = productJson.USItemId;
         // Title of product
         this.title = productJson.basic.name;
         this.price = new Price(productJson.store.price);
+        this.datePriced = datePriced;
     }
 }
 
@@ -55,7 +68,6 @@ function reAttachDebugger(tabId) {
     );
 }
 
-// Todo: Handling should be different for each group of API urls.
 chrome.debugger.onEvent.addListener(function (source, method, params) {
 
         if (method == "Network.responseReceived") {
@@ -114,8 +126,10 @@ chrome.debugger.onEvent.addListener(function (source, method, params) {
 
 function handleProductPage(rObject, response) {
     console.log("got product page info url:", rObject.url, rObject)
+    let params = getParams(rObject.url);
+    let storeId = params.get("storeId");
     const resp_json = JSON.parse(response.body);
-    parseProductJson(resp_json);
+    parseProductJson(resp_json, storeId);
 }
 
 function initialListener(details) {
