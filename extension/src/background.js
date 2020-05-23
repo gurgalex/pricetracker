@@ -2,14 +2,12 @@
 import {idb} from "./db.js";
 import {getParams} from "./utils.js";
 
-console.log("register");
-
 /**
  * @param json {Object} Json object of Product info needing validation.
  * @param storeId {String} The identifier for a particular store for a company
  */
 function parseProductJson(json, storeId) {
-    const datePriced =  new Date();
+    const datePriced = new Date();
     let parsed_product_info = new ProductInfo(json, storeId, datePriced);
     console.log(`formatted product info:`, parsed_product_info);
     console.log(`\nitem name: ${parsed_product_info.title}` +
